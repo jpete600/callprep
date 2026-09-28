@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Desk</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&display=swap">
+<style>
+:root{--bg:#eef2f6;--panel:#fff;--ink:#14212e;--mute:#5d6b7a;--line:#d5dde6;--accent:#0f5fd7;--accent-ink:#fff;--soft:#e3edfb;--warn:#a5341f}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1720;--panel:#17222e;--ink:#e6edf4;--mute:#93a2b3;--line:#2a3948;--accent:#5b9bff;--accent-ink:#08111c;--soft:#1c2c42;--warn:#ff9a85}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Schibsted Grotesk",system-ui,sans-serif}
+main{max-width:920px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:2rem;margin:0 0 4px;letter-spacing:-.02em}
+.sub{color:var(--mute);margin:0 0 22px}
+details.setup{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:22px}
+summary{cursor:pointer;font-weight:700}
+label{display:block;font-weight:500;margin:14px 0 4px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+textarea{resize:vertical;min-height:84px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hint{color:var(--mute);font-size:.88rem;margin:4px 0 0}
+nav{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px}
+nav button{font:inherit;font-weight:500;background:none;border:0;border-bottom:3px solid transparent;color:var(--mute);padding:10px 14px;cursor:pointer}
+nav button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.row{grid-template-columns:1fr}}
+.btn{font:inherit;font-weight:700;background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:10px 18px;cursor:pointer;margin-top:16px}
+.btn.alt{background:var(--soft);color:var(--ink)}
+.btn:disabled{opacity:.5;cursor:wait}
+.out{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 20px 14px;margin-top:20px;max-width:100%;overflow-x:auto}
+.out:empty{display:none}
+.out h2,.out h3{font-size:1.1rem;margin:18px 0 4px}
+.out ul{padding-left:20px;margin:6px 0}
+.out p{margin:8px 0}
+.err{color:var(--warn);font-weight:500}
+.chat{display:flex;flex-direction:column;gap:10px;margin-top:20px}
+.msg{max-width:82%;padding:10px 14px;border-radius:12px;white-space:pre-wrap}
+.msg.buyer{background:var(--panel);border:1px solid var(--line);align-self:flex-start}
+.msg.rep{background:var(--accent);color:var(--accent-ink);align-self:flex-end}
+.send{display:flex;gap:8px;margin-top:14px}
+.send textarea{min-height:48px}
+.send .btn{margin-top:0}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Sales Desk</h1>
+  <p class="sub">Prep for calls and practice objections, powered by Claude.</p>
+
+  <details class="setup" id="setup" open>
+    <summary>Setup</summary>
+    <label for="key">Anthropic API key</label>
+    <input id="key" type="password" autocomplete="off" placeholder="sk-ant-...">
+    <p class="hint">Stays in this browser only (localStorage) and is sent straight to Anthropic. Each teammate uses their own key.</p>
+    <label for="model">Model</label>
+    <input id="model" value="claude-sonnet-5">
+    <label for="ctx">What you sell and how you position it</label>
+    <textarea id="ctx" placeholder="Product, ideal customer, value props, pricing tiers, top competitors, proof points..."></textarea>
+    <p class="hint">Paste your messaging or playbook here. Claude uses it in every brief and roleplay.</p>
+    <button class="btn alt" id="save">Save settings</button>
+  </details>
+
+  <nav role="tablist">
+    <button role="tab" id="t-prep" aria-selected="true" aria-controls="p-prep">Call prep</button>
+    <button role="tab" id="t-coach" aria-selected="false" aria-controls="p-coach">Objection coach</button>
+  </nav>
+
+  <section id="p-prep" role="tabpanel">
+    <div class="row">
+      <div><label for="co">Company</label><input id="co" placeholder="Acme Logistics"></div>
+      <div><label for="who">Contact and role</label><input id="who" placeholder="Dana Ruiz, VP Operations"></div>
+    </div>
+    <label for="type">Call type</label>
+    <select id="type"><option>Discovery call</option><option>Demo</option><option>Follow-up</option><option>Negotiation</option><option>Renewal</option></select>
+    <label for="notes">What you know so far</label>
+    <textarea id="notes" placeholder="Industry, size, past conversations, pain points, competitors they use..."></textarea>
+    <button class="btn" id="go-prep">Build brief</button>
+    <div class="out" id="prep-out" aria-live="polite"></div>
+  </section>
+
+  <section id="p-coach" role="tabpanel" hidden>
+    <label for="persona">Buyer to practice against</label>
+    <input id="persona" placeholder="CFO at a 500-person manufacturer, worried about budget">
+    <label for="obj">Objection to open with (optional)</label>
+    <input id="obj" placeholder="Your price is 30% higher than what we pay today.">
+    <button class="btn" id="go-coach">Start roleplay</button>
+    <div class="chat" id="chat" aria-live="polite"></div>
+    <div class="send" id="send" hidden>
+      <textarea id="reply" placeholder="Type your response as the rep..."></textarea>
+      <button class="btn" id="go-reply">Send</button>
+    </div>
+    <button class="btn alt" id="go-fb" hidden>Get coaching feedback</button>
+    <div class="out" id="fb-out" aria-live="polite"></div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const store = {
+  get(k){ try{ return localStorage.getItem(k) || ""; }catch(e){ return ""; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+};
+$("key").value = store.get("sd_key");
+$("model").value = store.get("sd_model") || "claude-sonnet-5";
+$("ctx").value = store.get("sd_ctx");
+if ($("key").value) $("setup").open = false;
+
+$("save").onclick = () => {
+  store.set("sd_key",$("key").value.trim()); store.set("sd_model",$("model").value.trim()); store.set("sd_ctx",$("ctx").value);
+  $("save").textContent = "Saved"; setTimeout(()=>$("save").textContent="Save settings",1500);
+};
+
+// Tabs
+for (const t of ["prep","coach"]) $("t-"+t).onclick = () => {
+  for (const o of ["prep","coach"]) { $("t-"+o).setAttribute("aria-selected", o===t); $("p-"+o).hidden = o!==t; }
+};
+
+// API call: browser-direct access header is required for CORS
+async function claude(system, messages){
+  const key = $("key").value.trim();
+  if (!key) { $("setup").open = true; throw new Error("Add your API key in Setup first."); }
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST",
+    headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:$("model").value.trim()||"claude-sonnet-5",max_tokens:1500,system,messages})
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error?.message || "Request failed ("+r.status+")");
+  return d.content.filter(b=>b.type==="text").map(b=>b.text).join("\n");
+}
+
+// Minimal, safe markdown renderer
+function md(s){
+  const esc = t => t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
+  let html = "", inList = false;
+  for (const line of s.split("\n")) {
+    const li = line.match(/^\s*[-*]\s+(.*)/);
+    if (li) { if(!inList){html+="<ul>";inList=true;} html+="<li>"+esc(li[1])+"</li>"; continue; }
+    if (inList){html+="</ul>";inList=false;}
+    const h = line.match(/^#{1,4}\s+(.*)/);
+    if (h) html += "<h3>"+esc(h[1])+"</h3>";
+    else if (line.trim()) html += "<p>"+esc(line)+"</p>";
+  }
+  return html + (inList?"</ul>":"");
+}
+const ctxBlock = () => $("ctx").value.trim() ? "\n\nOur company context:\n"+$("ctx").value.trim() : "";
+const showErr = (el,e) => el.innerHTML = '<p class="err">'+String(e.message).replace(/</g,"&lt;")+'</p>';
+async function busy(btn, fn){ const l=btn.textContent; btn.disabled=true; btn.textContent="Working..."; try{ await fn(); } finally{ btn.disabled=false; btn.textContent=l; } }
+
+// Call prep
+$("go-prep").onclick = () => busy($("go-prep"), async () => {
+  const out = $("prep-out");
+  if (!$("co").value.trim()) { showErr(out,new Error("Enter a company name.")); return; }
+  const sys = "You are a sales coach for B2B reps. Write concise, specific call prep briefs in markdown. Use these sections: Snapshot, Likely priorities, Discovery questions (5-7, open-ended), Likely objections and how to answer, Goal and next step to ask for. Do not invent facts about the prospect; flag anything to verify." + ctxBlock();
+  const msg = `Call type: ${$("type").value}\nCompany: ${$("co").value}\nContact: ${$("who").value}\nNotes: ${$("notes").value || "none"}`;
+  try { out.innerHTML = md(await claude(sys,[{role:"user",content:msg}])); } catch(e){ showErr(out,e); }
+});
+
+// Objection coach
+let hist = [];
+const buyerSys = () => "You are roleplaying a skeptical B2B buyer for sales practice. Persona: " + ($("persona").value || "a busy, budget-conscious decision maker") + ". Stay in character. Reply in 1-3 sentences. Raise realistic objections, and soften only if the rep earns it with specific, relevant answers. Never break character or coach." + ctxBlock();
+function draw(){
+  $("chat").innerHTML = "";
+  for (const m of hist) { const d = document.createElement("div"); d.className = "msg "+(m.role==="assistant"?"buyer":"rep"); d.textContent = m.content; $("chat").appendChild(d); }
+}
+$("go-coach").onclick = () => busy($("go-coach"), async () => {
+  $("fb-out").innerHTML = "";
+  const first = $("obj").value.trim();
+  try {
+    hist = [{role:"user",content:"Begin the roleplay. Open the conversation as the buyer" + (first ? " with this objection: "+first : ".")}];
+    const t = await claude(buyerSys(), hist);
+    hist = [hist[0], {role:"assistant",content:t}];
+    draw(true); $("send").hidden = false; $("go-fb").hidden = false;
+  } catch(e){ showErr($("fb-out"),e); }
+});
+$("go-reply").onclick = () => busy($("go-reply"), async () => {
+  const r = $("reply").value.trim(); if (!r) return;
+  hist.push({role:"user",content:r}); $("reply").value = ""; draw();
+  try { hist.push({role:"assistant",content:await claude(buyerSys(),hist)}); draw(); } catch(e){ hist.pop(); showErr($("fb-out"),e); }
+});
+$("go-fb").onclick = () => busy($("go-fb"), async () => {
+  const log = hist.slice(1).map(m => (m.role==="assistant"?"Buyer: ":"Rep: ")+m.content).join("\n");
+  const sys = "You are a sales coach reviewing a practice conversation. Give feedback in markdown with sections: What worked, What to improve (with a stronger sample line for each), and One thing to practice next." + ctxBlock();
+  try { $("fb-out").innerHTML = md(await claude(sys,[{role:"user",content:"Review this roleplay:\n"+log}])); } catch(e){ showErr($("fb-out"),e); }
+});
+</script>
+</body>
+</html>
