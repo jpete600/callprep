@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Objection Coach</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&display=swap">
+<style>
+:root{--bg:#eef2f6;--panel:#fff;--ink:#14212e;--mute:#5d6b7a;--line:#d5dde6;--accent:#0f5fd7;--accent-ink:#fff;--soft:#e3edfb;--warn:#a5341f;--good:#1b7a45;--mid:#9a6a00;--bad:#a5341f}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1720;--panel:#17222e;--ink:#e6edf4;--mute:#93a2b3;--line:#2a3948;--accent:#5b9bff;--accent-ink:#08111c;--soft:#1c2c42;--warn:#ff9a85;--good:#5fd18f;--mid:#f0c05a;--bad:#ff9a85}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Schibsted Grotesk",system-ui,sans-serif}
+main{max-width:960px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:2rem;margin:0 0 4px;letter-spacing:-.02em}
+.sub{color:var(--mute);margin:0 0 22px}
+.grid{display:grid;grid-template-columns:300px 1fr;gap:22px;align-items:start}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+label{display:block;font-weight:500;margin:12px 0 4px}
+label:first-child{margin-top:0}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+textarea{resize:vertical;min-height:48px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hint{color:var(--mute);font-size:.88rem;margin:4px 0 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{font:inherit;font-size:.86rem;background:var(--soft);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:4px 11px;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn{font:inherit;font-weight:700;background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:10px 18px;cursor:pointer;margin-top:14px}
+.btn.alt{background:var(--soft);color:var(--ink)}
+.btn:disabled{opacity:.5;cursor:wait}
+.score{display:flex;gap:18px;margin-bottom:14px}
+.score div{flex:1}
+.score b{display:block;font-size:1.6rem;line-height:1.1}
+.score span{color:var(--mute);font-size:.85rem}
+.chat{display:flex;flex-direction:column;gap:12px;min-height:120px}
+.empty{color:var(--mute)}
+.msg{max-width:85%;padding:10px 14px;border-radius:12px;white-space:pre-wrap}
+.msg.buyer{background:var(--panel);border:1px solid var(--line);align-self:flex-start}
+.msg.rep{background:var(--accent);color:var(--accent-ink);align-self:flex-end}
+.fb{align-self:flex-end;max-width:85%;font-size:.9rem;border-left:4px solid var(--mute);padding:2px 0 2px 10px;color:var(--mute)}
+.fb strong{color:var(--ink)}
+.fb.s-good{border-color:var(--good)}.fb.s-mid{border-color:var(--mid)}.fb.s-bad{border-color:var(--bad)}
+.send{display:flex;gap:8px;margin-top:14px}
+.send .btn{margin-top:0}
+.out{margin-top:16px;border-top:1px solid var(--line);padding-top:4px}
+.out:empty{display:none}
+.out h3{font-size:1.05rem;margin:16px 0 4px}
+.out ul{padding-left:20px;margin:6px 0}
+.err{color:var(--warn);font-weight:500}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Objection Coach</h1>
+  <p class="sub">Practice against a buyer who pushes back. Every reply gets a score and a tip.</p>
+  <div class="grid">
+    <aside class="card">
+      <div id="keybox" hidden>
+        <label for="key">Anthropic API key</label>
+        <input id="key" type="password" autocomplete="off" placeholder="sk-ant-...">
+        <p class="hint">Stays in this browser only.</p>
+      </div>
+      <label for="persona">Buyer</label>
+      <input id="persona" value="VP of Operations at a 300-person logistics company">
+      <label for="diff">Difficulty</label>
+      <select id="diff"><option value="friendly">Friendly: open to being convinced</option><option value="skeptical" selected>Skeptical: needs specifics</option><option value="hostile">Hostile: short on time, hard to win</option></select>
+      <label>Objection</label>
+      <div class="chips" id="chips"></div>
+      <textarea id="obj" placeholder="Pick one above or write your own"></textarea>
+      <label for="ctx">Your product and positioning</label>
+      <textarea id="ctx" placeholder="What you sell, who it's for, key value props, proof points, competitors..."></textarea>
+      <p class="hint">Saved locally and shared with the Sales Desk page.</p>
+      <button class="btn" id="start">Start session</button>
+    </aside>
+    <section class="card">
+      <div class="score" aria-live="polite">
+        <div><b id="avg">-</b><span>average score</span></div>
+        <div><b id="cnt">0</b><span>replies</span></div>
+        <div><b id="best">-</b><span>best</span></div>
+      </div>
+      <div class="chat" id="chat" aria-live="polite"><p class="empty">Set up the buyer and start a session. The buyer speaks first.</p></div>
+      <div class="send" id="send" hidden>
+        <textarea id="reply" placeholder="Your response as the rep. Ctrl+Enter to send."></textarea>
+        <button class="btn" id="go">Send</button>
+      </div>
+      <button class="btn alt" id="end" hidden>End and review session</button>
+      <div class="out" id="out" aria-live="polite"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const store = { get(k){try{return localStorage.getItem(k)||""}catch(e){return ""}}, set(k,v){try{localStorage.setItem(k,v)}catch(e){}} };
+$("key").value = store.get("sd_key");
+$("ctx").value = store.get("sd_ctx");
+if (!$("key").value) $("keybox").hidden = false;
+
+const PRESETS = [
+  ["Price", "Your price is 30% higher than what we pay today."],
+  ["Timing", "We're not looking at anything until next quarter."],
+  ["Competitor", "We already use a competitor and it does the job."],
+  ["Authority", "I'd have to run this by my boss and the CFO, and they're hard to get time with."],
+  ["No need", "Honestly, I don't see what problem this solves for us."],
+  ["Risk", "We tried something like this two years ago and it went badly."]
+];
+PRESETS.forEach(([label, text]) => {
+  const b = document.createElement("button");
+  b.className = "chip"; b.textContent = label; b.setAttribute("aria-pressed","false");
+  b.onclick = () => { $("obj").value = text; document.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c===b)); };
+  $("chips").appendChild(b);
+});
+
+const DIFF = {
+  friendly: "You are open to being convinced. Soften quickly when the rep gives a relevant answer.",
+  skeptical: "You need specifics. Soften only when the rep answers with concrete, relevant evidence, and push back on vague claims.",
+  hostile: "You are short on time and hard to win. Interrupt fluff, challenge claims, and give ground only for a sharp, specific, well-framed answer."
+};
+let hist = [], log = [];
+
+function system(){
+  const ctx = $("ctx").value.trim();
+  return `You run a sales objection-handling practice session. You play a buyer AND silently coach the rep.
+Buyer persona: ${$("persona").value}. ${DIFF[$("diff").value]}
+Stay in character as the buyer: 1-3 sentences, realistic, never break character in the "buyer" field.
+Respond ONLY with JSON, no code fences: {"buyer":"<buyer's next line>","score":<1-5 integer rating the rep's latest reply, or null if the rep has not replied yet>,"tip":"<one specific sentence on what worked or what to say instead, or empty string>"}
+Scoring: 1 = defensive or ignored the concern, 3 = acknowledged it but generic, 5 = acknowledged, asked or reframed smartly, gave specific proof, and moved the deal forward.
+${ctx ? "The rep's company context:\n"+ctx : ""}`;
+}
+
+async function claude(){
+  const key = $("key").value.trim();
+  if (!key) { $("keybox").hidden = false; throw new Error("Add your API key first."); }
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST",
+    headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:store.get("sd_model")||"claude-sonnet-5",max_tokens:700,system:system(),messages:hist})
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error?.message || "Request failed ("+r.status+")");
+  const raw = d.content.filter(b=>b.type==="text").map(b=>b.text).join("");
+  let j; try { j = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}")+1)); } catch(e){ j = {buyer:raw, score:null, tip:""}; }
+  return {raw, j};
+}
+
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function draw(){
+  const c = $("chat"); c.innerHTML = "";
+  for (const m of log) {
+    const d = document.createElement("div"); d.className = "msg "+m.role; d.textContent = m.text; c.appendChild(d);
+    if (m.role==="rep" && m.score) {
+      const f = document.createElement("div");
+      f.className = "fb "+(m.score>=4?"s-good":m.score>=3?"s-mid":"s-bad");
+      f.innerHTML = "<strong>"+m.score+"/5</strong> "+esc(m.tip||"");
+      c.appendChild(f);
+    }
+  }
+  const s = log.filter(m=>m.score).map(m=>m.score);
+  $("cnt").textContent = s.length;
+  $("avg").textContent = s.length ? (s.reduce((a,b)=>a+b,0)/s.length).toFixed(1) : "-";
+  $("best").textContent = s.length ? Math.max(...s) : "-";
+}
+function showErr(e){ $("out").innerHTML = '<p class="err">'+esc(e.message)+'</p>'; }
+async function busy(btn, fn){ const l=btn.textContent; btn.disabled=true; btn.textContent="Working..."; try{ await fn(); } finally{ btn.disabled=false; btn.textContent=l; } }
+
+$("start").onclick = () => busy($("start"), async () => {
+  store.set("sd_ctx", $("ctx").value); if ($("key").value.trim()) store.set("sd_key", $("key").value.trim());
+  $("out").innerHTML = ""; log = [];
+  const o = $("obj").value.trim();
+  hist = [{role:"user", content:"Begin. Open as the buyer" + (o ? " with this objection: "+o : " with a realistic objection.") + " Set score to null."}];
+  try {
+    const {raw, j} = await claude();
+    hist.push({role:"assistant", content:raw}); log.push({role:"buyer", text:j.buyer});
+    draw(); $("send").hidden = false; $("end").hidden = false; $("reply").focus();
+  } catch(e){ showErr(e); }
+});
+
+async function send(){
+  const t = $("reply").value.trim(); if (!t) return;
+  $("reply").value = ""; hist.push({role:"user", content:t}); log.push({role:"rep", text:t}); draw();
+  const rep = log[log.length-1];
+  try {
+    const {raw, j} = await claude();
+    hist.push({role:"assistant", content:raw});
+    rep.score = Number.isInteger(j.score) ? Math.min(5,Math.max(1,j.score)) : null; rep.tip = j.tip;
+    log.push({role:"buyer", text:j.buyer}); draw();
+  } catch(e){ hist.pop(); log.pop(); showErr(e); draw(); $("reply").value = t; }
+}
+$("go").onclick = () => busy($("go"), send);
+$("reply").addEventListener("keydown", e => { if (e.key==="Enter" && (e.ctrlKey||e.metaKey)) { e.preventDefault(); $("go").click(); } });
+
+$("end").onclick = () => busy($("end"), async () => {
+  if (!log.some(m=>m.score)) { showErr(new Error("Reply to the buyer at least once first.")); return; }
+  hist.push({role:"user", content:"End of session. Ignore the JSON format now. Write a markdown review with sections: Overall, Strengths, Patterns to fix, and Three drills to practice next. Transcript with scores:\n" + log.map(m => (m.role==="buyer"?"Buyer: ":"Rep: ")+m.text+(m.score?" [score "+m.score+"]":"")).join("\n")});
+  try {
+    const {raw} = await claude(); hist.pop();
+    let html = "", ul = false;
+    for (const l of raw.split("\n")) {
+      const li = l.match(/^\s*(?:[-*]|\d+\.)\s+(.*)/);
+      if (li) { if(!ul){html+="<ul>";ul=true} html+="<li>"+esc(li[1]).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")+"</li>"; continue; }
+      if (ul){html+="</ul>";ul=false}
+      const h = l.match(/^#{1,4}\s+(.*)/);
+      if (h) html += "<h3>"+esc(h[1])+"</h3>"; else if (l.trim()) html += "<p>"+esc(l).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")+"</p>";
+    }
+    $("out").innerHTML = html + (ul?"</ul>":"");
+  } catch(e){ hist.pop(); showErr(e); }
+});
+</script>
+</body>
+</html>
